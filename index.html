@@ -99,9 +99,10 @@ table.d tfoot td{font-weight:700}
   <div class="sub" style="margin:4px 0 0">縮圖可拖曳調整順序，附件頁會依此排列。</div>
   <div class="actions">
     <button class="ai" id="aiBtn" hidden>✨ 從截圖自動帶入細項</button>
-    <button class="ai" id="ocrBtn" disabled>🔍 辨識截圖帶入細項（本機 OCR）</button>
+    <button class="ai" id="ocrBtn" disabled>🔍 重新辨識全部截圖</button>
   </div>
-  <div class="sub" id="ocrHint" style="margin:6px 0 0">辨識在你的瀏覽器內完成，圖片不會上傳。首次使用需下載約 4 MB 的中文辨識模型。辨識結果可能有錯字，請務必核對。</div>
+  <label id="autoLbl" style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink);margin:8px 0 0"><input type="checkbox" id="autoOcr" style="width:auto" checked>上傳後自動辨識並帶入細項</label>
+  <div class="sub" id="ocrHint" style="margin:6px 0 0">辨識在你的瀏覽器內完成，圖片不會上傳。首次使用需下載約 4 MB 的中文辨識模型。新上傳的圖片會追加細項；「重新辨識全部」會覆蓋目前細項。辨識結果可能有錯字，請務必核對。</div>
   <div class="status" id="aiStatus"></div>
 
   <h2>② 領據資料</h2>
@@ -195,7 +196,7 @@ thumbs.addEventListener("dragend",()=>{dragI=null;renderThumbs()});
 function addFiles(files){[...files].filter(f=>f.type.startsWith("image/")).forEach(f=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{
   // downscale big screenshots to keep PDF small
   const W=Math.min(1600,img.naturalWidth),H=Math.round(img.naturalHeight*W/img.naturalWidth),c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);
-  S.images.push({src:c.toDataURL("image/jpeg",0.85),name:f.name,w:W,h:H});renderThumbs();changed()};img.src=r.result};r.readAsDataURL(f)})}
+  S.images.push({src:c.toDataURL("image/jpeg",0.85),name:f.name,w:W,h:H});renderThumbs();changed();scheduleAuto()};img.src=r.result};r.readAsDataURL(f)})}
 const drop=$("drop");drop.onclick=()=>$("file").click();$("file").onchange=e=>{addFiles(e.target.files);e.target.value=""};
 ["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over")}));
@@ -368,15 +369,17 @@ async function getWorker(st){
   await ocrWorker.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
   return ocrWorker;
 }
+let ocrBusy=false,autoTmr=null;
 $("ocrBtn").onclick=async()=>{
-  const st=$("aiStatus");st.className="status";if(!S.images.length)return;
+  const st=$("aiStatus");st.className="status";if(!S.images.length||ocrBusy)return;
+  ocrBusy=true;clearTimeout(autoTmr);
   $("ocrBtn").disabled=true;st.textContent="準備辨識…";
   try{
     const w=await getWorker(st),items=[];
     for(let i=0;i<S.images.length;i++){
       st.textContent=`辨識第 ${i+1}／${S.images.length} 張…`;
       const {data}=await w.recognize(S.images[i].src);
-      const r=parseShopee(data.text);S.images[i].date=r.map(x=>x.date).filter(Boolean).sort()[0]||"";
+      const r=parseShopee(data.text);S.images[i].date=r.map(x=>x.date).filter(Boolean).sort()[0]||"";S.images[i].done=true;
       items.push(...r);
     }
     S.images=byDate(S.images);renderThumbs();
@@ -384,14 +387,34 @@ $("ocrBtn").onclick=async()=>{
     S.items=byDate(items);renderItems();changed();
     st.textContent=`已帶入 ${items.length} 筆，細項與截圖皆已依日期排序（截圖可再拖曳調整）。OCR 可能有錯字，請逐筆核對品名、賣場、日期與金額。`;
   }catch(e){st.className="status err";st.textContent="辨識失敗："+(e.message||e)}
-  $("ocrBtn").disabled=!S.images.length;
+  ocrBusy=false;$("ocrBtn").disabled=!S.images.length;
 };
+// 上傳後自動辨識（只處理尚未辨識的新圖片，結果追加到細項）
+try{$("autoOcr").checked=localStorage.getItem("fz_auto")!=="0"}catch(e){}
+$("autoOcr").onchange=e=>{try{localStorage.setItem("fz_auto",e.target.checked?"1":"0")}catch(_){}if(e.target.checked)scheduleAuto()};
+function scheduleAuto(){if(!$("autoOcr").checked||sampleFn)return;clearTimeout(autoTmr);autoTmr=setTimeout(autoRun,500)}
+async function autoRun(){
+  if(ocrBusy){autoTmr=setTimeout(autoRun,800);return}
+  const todo=S.images.filter(im=>!im.done);if(!todo.length)return;
+  ocrBusy=true;const st=$("aiStatus");st.className="status";$("ocrBtn").disabled=true;st.textContent="準備自動辨識…";
+  try{
+    const w=await getWorker(st),add=[];
+    for(let i=0;i<todo.length;i++){
+      st.textContent=`自動辨識第 ${i+1}／${todo.length} 張…`;
+      const {data}=await w.recognize(todo[i].src);
+      const r=parseShopee(data.text);todo[i].date=r.map(x=>x.date).filter(Boolean).sort()[0]||"";todo[i].done=true;add.push(...r);
+    }
+    S.images=byDate(S.images);S.items=byDate(S.items.concat(add));renderThumbs();renderItems();changed();
+    st.textContent=add.length?`已自動帶入 ${add.length} 筆（依日期排序）。OCR 可能有錯字，請逐筆核對品名、賣場、日期與金額。`:"沒有讀到訂單，請確認截圖包含「訂單金額」，或手動填寫。";
+  }catch(e){st.className="status err";st.textContent="自動辨識失敗："+(e.message||e)}
+  ocrBusy=false;$("ocrBtn").disabled=!S.images.length;
+}
 
 // ---- capabilities ----
 (async()=>{
   if(!window.claude||!claude.use)return;
   try{dl=await claude.use("downloads")}catch(e){}
-  try{const s=await claude.use("sample");if(s){const lim=await s.limits();if(lim&&lim.images){sampleFn=s;$("aiBtn").hidden=false;$("ocrBtn").hidden=true;$("ocrHint").hidden=true}}}catch(e){}
+  try{const s=await claude.use("sample");if(s){const lim=await s.limits();if(lim&&lim.images){sampleFn=s;$("aiBtn").hidden=false;$("ocrBtn").hidden=true;$("ocrHint").hidden=true;$("autoLbl").hidden=true}}}catch(e){}
 })();
 
 fillForm();render();
