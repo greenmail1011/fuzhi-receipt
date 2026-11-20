@@ -7,3 +7,5 @@
 *.webp
 *.docx
 .DS_Store
+# 分享預覽縮圖例外
+!og.png
