@@ -1,0 +1,9 @@
+# 不要把填好的領據或訂單截圖 commit 進來
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.heic
+*.webp
+*.docx
+.DS_Store

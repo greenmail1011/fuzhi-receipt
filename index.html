@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>富志科技｜蝦皮購物領據產生器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--ink:#1d1d1b;--muted:#6b6b66;--line:#d9d6cf;--bg:#f4f2ed;--panel:#fff;--accent:#c2462b;--accent2:#2f5d50}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans TC",system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+.app{display:grid;grid-template-columns:440px 1fr;min-height:100vh}
+@media(max-width:1000px){.app{grid-template-columns:1fr}}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:20px 20px 60px;overflow:auto;max-height:100vh;position:sticky;top:0}
+@media(max-width:1000px){aside{position:static;max-height:none}}
+h1{font-size:18px;margin:0 0 4px}
+.sub{font-size:12px;color:var(--muted);margin:0 0 16px}
+h2{font-size:13px;letter-spacing:.08em;color:var(--accent2);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input,textarea,select{width:100%;font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+textarea{resize:vertical;min-height:54px}
+input:focus,textarea:focus{outline:2px solid #2f5d5033;border-color:var(--accent2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 12px;cursor:pointer;color:var(--ink)}
+button:hover{background:#faf9f6}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:500}
+button.primary:hover{background:#a93b23}
+button.ai{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+button:disabled{opacity:.5;cursor:default}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer;transition:.15s}
+.drop.over{border-color:var(--accent2);background:#2f5d500d}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.thumb{position:relative;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fafafa}
+.thumb img{width:100%;height:56px;object-fit:cover;display:block}
+.thumb .tb{position:absolute;top:2px;right:2px;display:flex;gap:2px}
+.thumb .tb button{padding:0 5px;font-size:11px;line-height:16px;background:#fffffff0}
+.items{width:100%;border-collapse:collapse;font-size:12px}
+.item{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px;position:relative;background:#fcfbf9}
+.item .grid{display:grid;grid-template-columns:2fr 1fr;gap:6px}
+.item .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}
+.item input{font-size:13px;padding:5px 7px}
+.item .del{position:absolute;top:-8px;right:-8px;border-radius:50%;width:22px;height:22px;padding:0;font-size:12px;line-height:20px}
+.total{font-size:14px;text-align:right;margin:6px 0}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.status{font-size:12px;color:var(--muted);margin-top:8px;min-height:16px;white-space:pre-wrap}
+.status.err{color:var(--accent)}
+main{padding:24px;overflow:auto}
+.pages{display:flex;flex-direction:column;align-items:center;gap:20px;zoom:var(--z,0.9)}
+.bar{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;justify-content:center;margin:-24px -24px 16px;padding:10px;background:#f4f2edee;backdrop-filter:blur(4px);border-bottom:1px solid var(--line)}
+.bar .info{font-size:12px;color:var(--muted)}
+/* ===== A4 page ===== */
+.page{width:794px;height:1123px;background:#fff;box-shadow:0 2px 14px #0000001a;padding:56px 60px;position:relative;font-family:"Noto Serif TC",serif;color:#111;overflow:hidden}
+.r-title{text-align:center;font-size:30px;font-weight:700;letter-spacing:.9em;margin:0 0 4px;padding-left:.9em}
+.r-meta{display:flex;justify-content:space-between;font-size:14px;margin:14px 0 6px}
+table.r{width:100%;border-collapse:collapse;font-size:15px}
+table.r th,table.r td{border:1.2px solid #222;padding:9px 10px;vertical-align:middle;text-align:left}
+table.r th{width:118px;font-weight:700;background:#f6f5f2;white-space:nowrap}
+.amt{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.amt .cells{display:flex;border:1px solid #222}
+.amt .cell{display:flex;flex-direction:column;align-items:center;width:46px;border-right:1px solid #222}
+.amt .cell:last-child{border-right:0}
+.amt .cell small{font-size:10px;color:#555;border-bottom:1px solid #222;width:100%;text-align:center;padding:1px 0;background:#f6f5f2}
+.amt .cell b{font-size:18px;padding:3px 0}
+.amt .full{font-size:13px;color:#333;width:100%;margin-top:4px}
+.sign{height:58px}
+.sec{text-align:center;font-weight:700;font-size:17px;letter-spacing:.8em;padding-left:.8em;margin:26px 0 10px;position:relative}
+.sec:before,.sec:after{content:"";position:absolute;top:50%;width:36%;border-top:1px solid #999}
+.sec:before{left:0}.sec:after{right:0}
+table.d{width:100%;border-collapse:collapse;font-size:12.5px;font-family:"Noto Sans TC",sans-serif}
+table.d th,table.d td{border:1px solid #444;padding:5px 6px}
+table.d th{background:#f6f5f2;font-weight:500}
+table.d td.n{text-align:right;white-space:nowrap}
+table.d tfoot td{font-weight:700}
+.note{font-size:13px;margin-top:8px;white-space:pre-wrap;line-height:1.6}
+.att-h{font-size:13px;font-weight:700;margin:14px 0 6px;font-family:"Noto Sans TC",sans-serif}
+.att{margin-bottom:10px}
+.att img{width:100%;display:block;border:1px solid #ccc}
+.att .cap{font-size:11px;color:#555;margin-top:2px;font-family:"Noto Sans TC",sans-serif}
+.pno{position:absolute;bottom:22px;left:0;right:0;text-align:center;font-size:11px;color:#888;font-family:"Noto Sans TC",sans-serif}
+.empty{color:#aaa}
+#shot{position:fixed;left:-20000px;top:0}
+#shot .page{box-shadow:none}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <h1>蝦皮購物領據產生器</h1>
+  <p class="sub">上傳訂單截圖 → 自動辨識或手動填寫 → 匯出 PDF 列印</p>
+
+  <h2>① 訂單截圖</h2>
+  <div class="drop" id="drop">點此選擇、拖曳圖片進來，或直接貼上（⌘V）<input type="file" id="file" accept="image/*" multiple hidden></div>
+  <div class="thumbs" id="thumbs"></div>
+  <div class="actions">
+    <button class="ai" id="aiBtn" hidden>✨ 從截圖自動帶入細項</button>
+  </div>
+  <div class="status" id="aiStatus"></div>
+
+  <h2>② 領據資料</h2>
+  <div class="row2">
+    <div><label>領據日期</label><input type="date" id="f_date"></div>
+    <div><label>領據編號（選填）</label><input id="f_no" placeholder="例：FZ-1151120-01"></div>
+  </div>
+  <label>茲收到（付款單位）</label><input id="f_payer">
+  <label>事由</label><input id="f_purpose">
+  <label>領款人／收款賣場 <small>（留空則自動帶入細項中的賣場）</small></label><input id="f_payee" placeholder="自動">
+  <div class="row2">
+    <div><label>付款方式</label><input id="f_method"></div>
+    <div><label>經手人（購買人）</label><input id="f_handler"></div>
+  </div>
+  <label>說明</label><textarea id="f_note"></textarea>
+
+  <h2>③ 細項</h2>
+  <div id="items"></div>
+  <div class="actions"><button id="addItem">＋ 新增一筆</button></div>
+  <div class="total" id="sum"></div>
+
+  <h2>④ 匯出</h2>
+  <div class="actions">
+    <button class="primary" id="pdfBtn">⬇ 匯出 PDF</button>
+    <button id="clearBtn">清空，開新領據</button>
+  </div>
+  <div class="status" id="pdfStatus"></div>
+</aside>
+<main>
+  <div class="bar"><span class="info" id="pinfo"></span>
+    <button id="zo">－</button><button id="zi">＋</button></div>
+  <div class="pages" id="pages"></div>
+</main>
+</div>
+<div id="shot"></div>
+
+<script>
+
+const $=id=>document.getElementById(id);
+const DEF={no:"",payer:"富志科技",purpose:"購買營運用設備耗材（蝦皮購物平台）",payee:"",method:"蝦皮購物平台線上付款",handler:"",note:"本筆款項係於蝦皮購物平台購買，賣家無法開立統一發票／收據，故以本領據核銷，訂單截圖附後。"};
+let S;
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fresh(){return Object.assign({date:today(),items:[],images:[]},DEF)}
+// ---- persistence (text only) ----
+function saveLocal(){try{const t=Object.assign({},S);delete t.images;localStorage.setItem("fz_rcpt",JSON.stringify(t))}catch(e){}}
+function loadLocal(){try{const t=JSON.parse(localStorage.getItem("fz_rcpt")||"null");if(t){t.images=[];return t}}catch(e){}return null}
+S=loadLocal()||fresh();
+
+// ---- money ----
+const DG="零壹貳參肆伍陸柒捌玖";
+function upper(n){
+  n=Math.round(Math.abs(n));if(!n)return"零元整";
+  const U=["","拾","佰","仟"],SEC=["","萬","億","兆"],s=String(n),L=s.length;let out="",zero=false;
+  for(let i=0;i<L;i++){const pos=L-1-i,d=+s[i],u=pos%4,sec=Math.floor(pos/4);
+    if(d){if(zero)out+="零";zero=false;out+=DG[d]+U[u]}else if(out)zero=true;
+    if(u===0&&sec>0){const g=+s.slice(Math.max(0,i-3),i+1);if(g)out+=SEC[sec]}}
+  return out+"元整";
+}
+function cells(n){n=Math.round(n);const lab=["拾萬","萬","仟","佰","拾","元"],s=String(n).padStart(6,"0").slice(-6);
+  return lab.map((l,i)=>`<div class="cell"><small>${l}</small><b>${DG[+s[i]]}</b></div>`).join("")}
+const fmt=n=>"NT$ "+Math.round(n).toLocaleString("en-US");
+const total=()=>S.items.reduce((a,it)=>a+(+it.qty||0)*(+it.price||0),0);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function roc(d){if(!d)return"　年　月　日";const[y,m,dd]=d.split("-");return `中華民國 ${y-1911} 年 ${+m} 月 ${+dd} 日`}
+function payee(){if(S.payee.trim())return S.payee;const sh=[...new Set(S.items.map(i=>i.shop).filter(Boolean))];return sh.length?sh.join("、")+"（蝦皮賣場）":""}
+
+// ---- form binding ----
+const F=["date","no","payer","purpose","payee","method","handler","note"];
+function fillForm(){F.forEach(k=>$("f_"+k).value=S[k]||"");renderItems();renderThumbs()}
+F.forEach(k=>$("f_"+k).addEventListener("input",e=>{S[k]=e.target.value;changed()}));
+function renderItems(){
+  $("items").innerHTML=S.items.map((it,i)=>`<div class="item" data-i="${i}">
+    <button class="del" data-del="${i}" title="刪除">×</button>
+    <div class="grid"><input data-k="name" placeholder="品名" value="${esc(it.name)}"><input data-k="spec" placeholder="規格" value="${esc(it.spec)}"></div>
+    <div class="grid3"><input data-k="shop" placeholder="賣場" value="${esc(it.shop)}"><input data-k="date" type="date" value="${esc(it.date)}"><span style="display:flex;gap:4px"><input data-k="qty" type="number" min="0" placeholder="數量" value="${esc(it.qty)}" style="width:42%"><input data-k="price" type="number" placeholder="單價" value="${esc(it.price)}"></span></div></div>`).join("")||'<div class="sub">尚無細項，可按「從截圖自動帶入」或手動新增。</div>';
+}
+$("items").addEventListener("input",e=>{const k=e.target.dataset.k;if(!k)return;const i=+e.target.closest(".item").dataset.i;S.items[i][k]=e.target.value;changed()});
+$("items").addEventListener("click",e=>{const d=e.target.dataset.del;if(d==null)return;S.items.splice(+d,1);renderItems();changed()});
+$("addItem").onclick=()=>{S.items.push({date:S.date,shop:"",name:"",spec:"",qty:1,price:""});renderItems();changed()};
+
+// ---- images ----
+function renderThumbs(){$("thumbs").innerHTML=S.images.map((im,i)=>`<div class="thumb"><img src="${im.src}"><div class="tb">${i?`<button data-up="${i}">↑</button>`:""}<button data-rm="${i}">×</button></div></div>`).join("");
+  $("aiBtn").disabled=!S.images.length}
+$("thumbs").addEventListener("click",e=>{const t=e.target.dataset;if(t.rm!=null){S.images.splice(+t.rm,1)}else if(t.up!=null){const i=+t.up;[S.images[i-1],S.images[i]]=[S.images[i],S.images[i-1]]}else return;renderThumbs();changed()});
+function addFiles(files){[...files].filter(f=>f.type.startsWith("image/")).forEach(f=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{
+  // downscale big screenshots to keep PDF small
+  const W=Math.min(1600,img.naturalWidth),H=Math.round(img.naturalHeight*W/img.naturalWidth),c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);
+  S.images.push({src:c.toDataURL("image/jpeg",0.85),name:f.name,w:W,h:H});renderThumbs();changed()};img.src=r.result};r.readAsDataURL(f)})}
+const drop=$("drop");drop.onclick=()=>$("file").click();$("file").onchange=e=>{addFiles(e.target.files);e.target.value=""};
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>addFiles(e.dataTransfer.files));
+document.addEventListener("paste",e=>{const fs=[...(e.clipboardData?.items||[])].filter(i=>i.type.startsWith("image/")).map(i=>i.getAsFile());if(fs.length){e.preventDefault();addFiles(fs)}});
+
+// ---- preview / pagination ----
+function receiptHTML(){
+  const t=total(),rows=S.items.map((it,i)=>`<tr><td style="text-align:center">${i+1}</td><td>${esc(it.date)}</td><td>${esc(it.shop)}</td><td>${esc(it.name)}${it.spec?`<br><span style="color:#555">${esc(it.spec)}</span>`:""}</td><td class="n">${esc(it.qty)}</td><td class="n">${(+it.price||0).toLocaleString()}</td><td class="n">${((+it.qty||0)*(+it.price||0)).toLocaleString()}</td></tr>`).join("");
+  return `<div class="r-title">領據</div>
+  <div class="r-meta"><span>${S.no?"編號："+esc(S.no):""}</span><span>${roc(S.date)}</span></div>
+  <table class="r">
+   <tr><th>茲收到</th><td colspan="3"><b>${esc(S.payer)||'<span class="empty">（付款單位）</span>'}</b></td></tr>
+   <tr><th>事由</th><td colspan="3">${esc(S.purpose)}</td></tr>
+   <tr><th>金額</th><td colspan="3"><div class="amt">新台幣<div class="cells">${cells(t)}</div>元整　（${fmt(t)}）<div class="full">大寫：新台幣 ${upper(t)}</div></div></td></tr>
+   <tr><th>領款人</th><td colspan="3">${esc(payee())||'<span class="empty">（賣場名稱）</span>'}</td></tr>
+   <tr><th>付款方式</th><td colspan="3">${esc(S.method)}</td></tr>
+   <tr><th>經手人</th><td class="sign" style="width:34%">${esc(S.handler)}</td><th>主管核章</th><td class="sign"></td></tr>
+  </table>
+  ${S.note?`<div class="note"><b>說明：</b>${esc(S.note)}</div>`:""}
+  <div class="sec">細項</div>
+  <table class="d"><thead><tr><th style="width:28px">#</th><th style="width:78px">日期</th><th style="width:96px">賣場</th><th>品名／規格</th><th style="width:44px">數量</th><th style="width:62px">單價</th><th style="width:70px">小計</th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="7" class="empty" style="text-align:center">（無）</td></tr>'}</tbody>
+  <tfoot><tr><td colspan="6" style="text-align:right">合計</td><td class="n">${t.toLocaleString()}</td></tr></tfoot></table>`;
+}
+const PAGE_H=1123,PAD_T=56,PAD_B=64,CONTENT_W=674;
+function buildPages(){
+  const host=$("shot");host.innerHTML=`<div class="page"><div id="m">${receiptHTML()}</div></div>`;
+  let used=$("m").offsetHeight;const avail=PAGE_H-PAD_T-PAD_B;
+  const pages=[[{html:receiptHTML()}]];let cur=pages[0],first=true;
+  S.images.forEach((im,i)=>{
+    const head=(i===0)?28:0,h=Math.round(CONTENT_W*im.h/im.w)+22+head;
+    let ih=h;if(ih>avail-30){ih=avail-30}
+    if(used+ih>avail){cur=[];pages.push(cur);used=0}
+    const maxImgH=ih-22-head;
+    cur.push({html:`${head?'<div class="att-h">附件：訂單截圖</div>':''}<div class="att"><img src="${im.src}" style="max-height:${maxImgH}px;object-fit:contain"><div class="cap">附件 ${i+1}｜${esc(im.name||"")}</div></div>`});
+    used+=ih;
+  });
+  host.innerHTML="";
+  return pages.map((blocks,pi)=>`<div class="page">${blocks.map(b=>b.html).join("")}<div class="pno">${pages.length>1?`第 ${pi+1} 頁／共 ${pages.length} 頁`:""}</div></div>`);
+}
+let tmr;function changed(){saveLocal();clearTimeout(tmr);tmr=setTimeout(render,120);$("sum").textContent="合計 "+fmt(total())}
+function render(){const ps=buildPages();$("pages").innerHTML=ps.join("");$("pinfo").textContent=`預覽：A4 共 ${ps.length} 頁`;$("sum").textContent="合計 "+fmt(total())}
+let z=0.9;const setZ=()=>$("pages").style.setProperty("--z",z);
+$("zi").onclick=()=>{z=Math.min(1.4,z+.1);setZ()};$("zo").onclick=()=>{z=Math.max(.4,z-.1);setZ()};
+if(innerWidth<1400){z=innerWidth<1000?Math.max(.4,(innerWidth-48)/794):0.7;setZ()}
+
+// ---- PDF ----
+let dl=null;
+$("pdfBtn").onclick=async()=>{
+  const st=$("pdfStatus");st.className="status";st.textContent="產生 PDF 中…";$("pdfBtn").disabled=true;
+  try{
+    await document.fonts.ready;
+    const {jsPDF}=window.jspdf;const pdf=new jsPDF({unit:"mm",format:"a4"});
+    const host=$("shot");const ps=buildPages();
+    for(let i=0;i<ps.length;i++){host.innerHTML=ps[i];const el=host.firstElementChild;
+      const c=await html2canvas(el,{scale:2,backgroundColor:"#fff",useCORS:true,width:794,height:1123,windowWidth:794});
+      if(i)pdf.addPage();pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297)}
+    host.innerHTML="";
+    const name=`領據_${(S.date||today()).replace(/-/g,"")}_${Math.round(total())}元.pdf`;
+    const blob=pdf.output("blob");
+    if(dl){try{await dl.save({filename:name,data:blob});st.textContent="已匯出："+name}catch(e){
+        if(e&&e.code==="declined"){st.textContent="已取消下載"}else{st.className="status err";st.textContent="下載失敗："+(e.message||e.code)}}}
+    else{pdf.save(name);st.textContent="已匯出："+name}
+  }catch(e){st.className="status err";st.textContent="匯出失敗："+e.message}
+  $("pdfBtn").disabled=false;
+};
+$("clearBtn").onclick=()=>{const b=$("clearBtn");if(b.dataset.c){S=fresh();S.payer=DEF.payer;delete b.dataset.c;b.textContent="清空，開新領據";fillForm();changed()}else{b.dataset.c=1;b.textContent="再按一次確認清空";setTimeout(()=>{delete b.dataset.c;b.textContent="清空，開新領據"},3000)}};
+
+// ---- AI extraction ----
+let sampleFn=null;
+async function dataURLtoBlob(u){return (await fetch(u)).blob()}
+$("aiBtn").onclick=async()=>{
+  const st=$("aiStatus");st.className="status";if(!S.images.length)return;
+  st.textContent="辨識中，約需 10–30 秒…";$("aiBtn").disabled=true;
+  try{
+    const blobs=[];for(const im of S.images)blobs.push(await dataURLtoBlob(im.src));
+    const prompt=`以下是 ${blobs.length} 張台灣蝦皮購物的訂單截圖（依順序）。請逐張讀出每一筆訂單，回傳 JSON（只回傳 JSON，不要其他文字）：
+{"items":[{"image":1,"date":"YYYY-MM-DD","shop":"賣場名稱","name":"精簡品名（30字內，去掉廣告詞）","spec":"規格","qty":1,"price":單價數字}]}
+規則：
+- 每張截圖的每個商品各一筆；date 用截圖中的日期（例如「最後更新時間」或訂單日期），沒有就留空字串。
+- price 用實際付款的單價（若有劃線原價，用特價）。
+- 若「訂單金額」大於商品小計，差額是運費：在該筆 spec 後面加註「含運 $差額」，並把 price 改成 訂單金額÷數量，使小計等於訂單金額。
+- 賣場名稱若被截斷（…），保留看得到的部分並去掉「【…」之後的廣告字。`;
+    const r=await sampleFn(prompt,{images:blobs,modelTier:"default"});
+    const m=(r.text||"").match(/\{[\s\S]*\}/);if(!m)throw new Error("無法解析回應");
+    const items=(JSON.parse(m[0]).items||[]).map(x=>({date:x.date||"",shop:x.shop||"",name:x.name||"",spec:x.spec||"",qty:+x.qty||1,price:+x.price||0}));
+    if(!items.length)throw new Error("沒有讀到訂單");
+    S.items=items;renderItems();changed();
+    st.textContent=`已帶入 ${items.length} 筆，請核對金額與日期。`;
+  }catch(e){st.className="status err";st.textContent=(e&&e.code==="not_granted")?"未授權使用 Claude 辨識，請手動填寫細項。":"辨識失敗："+(e.message||e.code||e)}
+  $("aiBtn").disabled=false;
+};
+
+// ---- capabilities ----
+(async()=>{
+  if(!window.claude||!claude.use)return;
+  try{dl=await claude.use("downloads")}catch(e){}
+  try{const s=await claude.use("sample");if(s){const lim=await s.limits();if(lim&&lim.images){sampleFn=s;$("aiBtn").hidden=false}}}catch(e){}
+})();
+
+fillForm();render();
+</script>
+</body>
+</html>
