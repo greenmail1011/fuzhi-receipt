@@ -275,8 +275,8 @@ $("aiBtn").onclick=async()=>{
     const m=(r.text||"").match(/\{[\s\S]*\}/);if(!m)throw new Error("無法解析回應");
     const items=(JSON.parse(m[0]).items||[]).map(x=>({date:x.date||"",shop:x.shop||"",name:x.name||"",spec:x.spec||"",qty:+x.qty||1,price:+x.price||0}));
     if(!items.length)throw new Error("沒有讀到訂單");
-    S.items=items;renderItems();changed();
-    st.textContent=`已帶入 ${items.length} 筆，請核對金額與日期。`;
+    S.items=byDate(items);renderItems();changed();
+    st.textContent=`已帶入 ${items.length} 筆（依日期排序），請核對金額與日期。`;
   }catch(e){st.className="status err";st.textContent=(e&&e.code==="not_granted")?"未授權使用 Claude 辨識，請手動填寫細項。":"辨識失敗："+(e.message||e.code||e)}
   $("aiBtn").disabled=false;
 };
@@ -346,6 +346,7 @@ function parseShopee(text){
   return items;
 }
 
+const byDate=a=>a.map((x,i)=>[x,i]).sort((p,q)=>(p[0].date?0:1)-(q[0].date?0:1)||(p[0].date||"").localeCompare(q[0].date||"")||p[1]-q[1]).map(p=>p[0]);
 let ocrWorker=null;
 function loadTess(){return window.Tesseract?Promise.resolve():new Promise((ok,no)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";sc.onload=ok;sc.onerror=()=>no(new Error("無法載入 OCR 元件，請確認網路連線"));document.head.appendChild(sc)})}
 async function getWorker(st){
@@ -369,8 +370,8 @@ $("ocrBtn").onclick=async()=>{
       items.push(...parseShopee(data.text));
     }
     if(!items.length)throw new Error("沒有讀到訂單，請確認截圖包含「訂單金額」，或改用手動填寫");
-    S.items=items;renderItems();changed();
-    st.textContent=`已帶入 ${items.length} 筆。OCR 可能有錯字，請逐筆核對品名、賣場、日期與金額。`;
+    S.items=byDate(items);renderItems();changed();
+    st.textContent=`已帶入 ${items.length} 筆（依日期排序）。OCR 可能有錯字，請逐筆核對品名、賣場、日期與金額。`;
   }catch(e){st.className="status err";st.textContent="辨識失敗："+(e.message||e)}
   $("ocrBtn").disabled=!S.images.length;
 };
